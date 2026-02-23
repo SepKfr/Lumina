@@ -4,7 +4,16 @@ from app.models import Insight
 from app.services.guardrails import run_chat_guardrail
 from app.services.llm_client import chat_json
 
-ROOT = Path(__file__).resolve().parents[2]
+def _resolve_root(required_dir: str) -> Path:
+    here = Path(__file__).resolve()
+    candidates = [here.parents[3], here.parents[2]]
+    for root in candidates:
+        if (root / required_dir).exists():
+            return root
+    return candidates[-1]
+
+
+ROOT = _resolve_root("chat")
 SUPPORT_PROMPT_PATH = ROOT / "chat" / "support_agent_prompt.txt"
 DEBATE_PROMPT_PATH = ROOT / "chat" / "debate_agent_prompt.txt"
 

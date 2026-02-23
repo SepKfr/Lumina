@@ -49,6 +49,12 @@ services:
       db:
         condition: service_healthy
 
+    # Prompt/spec directories live at repo root; mount them for runtime access.
+    volumes:
+      - ./guardrails:/app/guardrails:ro
+      - ./chat:/app/chat:ro
+      - ./clustering:/app/clustering:ro
+
     # Bind only to localhost so Nginx is the public gateway
     ports:
       - "127.0.0.1:8010:8000"
