@@ -169,6 +169,60 @@ python backend/scripts/seed_insights.py
 
 Uses pro/con sentence variants and prefixes/suffixes to POST to `http://localhost:8000/v1/insights`.
 
+### Moving the populated graph to a server
+
+To copy your local database (insights, edges, clusters, reports) to a server:
+
+**1. Export from local**
+
+With Postgres running (e.g. `docker-compose -f docker-compose.infra.yml up -d`), create a dump. From the repo root:
+
+```bash
+# If using Docker for Postgres (default): run pg_dump inside the container
+docker exec mka_db pg_dump -U postgres -Fc mka > mka_dump.dump
+```
+
+Or if Postgres is installed locally and `mka` is running on port 5432:
+
+```bash
+pg_dump -U postgres -Fc -h localhost -p 5432 mka > mka_dump.dump
+```
+
+`-Fc` = custom format (good for `pg_restore`). For a plain SQL file instead, use `-Fp` and then restore with `psql -f mka_dump.sql`.
+
+**2. Copy the dump to the server**
+
+```bash
+scp mka_dump.dump user@your-server:/tmp/
+```
+
+**3. On the server**
+
+- Ensure Postgres has the **pgvector** extension (e.g. use the same `pgvector/pgvector:pg16` image, or install the extension in your existing Postgres).
+- Create the database and enable the extension if this is a fresh instance:
+
+  ```bash
+  # Example: create DB and enable vector (if init.sql isn’t run automatically)
+  psql -U postgres -c "CREATE DATABASE mka;"
+  psql -U postgres -d mka -c "CREATE EXTENSION IF NOT EXISTS vector;"
+  ```
+
+- Restore the dump (this overwrites existing tables in `mka`):
+
+  ```bash
+  pg_restore -U postgres -d mka -Fc --no-owner --no-acl /tmp/mka_dump.dump
+  ```
+
+- Configure the backend on the server to use this DB via `DATABASE_URL` (e.g. `postgresql+psycopg://user:pass@localhost:5432/mka`). Use the same **EMBEDDING_DIM** (e.g. 1536) as when the data was created.
+
+**4. Optional: clean up**
+
+```bash
+rm /tmp/mka_dump.dump
+```
+
+On your local machine you can remove `mka_dump.dump` after confirming the server has the data.
+
 ### Deploying as **Lumina** at alignmentatlas.online/lumina
 
 This project is configured so that **alignmentatlas.online/lumina** serves the Lumina app.

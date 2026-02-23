@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.services.llm_client import chat_json
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 SUBMISSION_PROMPT_PATH = ROOT / "guardrails" / "submission_guardrail_prompt.txt"
 CHAT_PROMPT_PATH = ROOT / "guardrails" / "chat_message_guardrail_prompt.txt"
 

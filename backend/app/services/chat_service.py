@@ -4,7 +4,7 @@ from app.models import Insight
 from app.services.guardrails import run_chat_guardrail
 from app.services.llm_client import chat_json
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 SUPPORT_PROMPT_PATH = ROOT / "chat" / "support_agent_prompt.txt"
 DEBATE_PROMPT_PATH = ROOT / "chat" / "debate_agent_prompt.txt"
 

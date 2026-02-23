@@ -2,7 +2,7 @@ from pathlib import Path
 
 from app.services.llm_client import chat_json
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 STANCE_PROMPT_PATH = ROOT / "chat" / "stance_extraction_prompt.txt"
 
 
