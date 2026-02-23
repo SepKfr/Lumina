@@ -2,21 +2,30 @@ services:
   db:
     image: pgvector/pgvector:pg16
     container_name: mka_db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: mka
-    ports:
-      - "5432:5432"
+    # Don't expose Postgres publicly
+    # If you need local psql access, use 127.0.0.1 binding:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mka"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: mka_backend
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/mka
       OPENAI_API_KEY: ${OPENAI_API_KEY}
@@ -27,23 +36,43 @@ services:
       CLUSTER_SIMILARITY_THRESHOLD: "0.78"
       EDGE_SIMILARITY_THRESHOLD: "0.72"
       CLUSTER_EMA_ALPHA: "0.25"
-      CORS_ORIGINS: http://localhost:5173
+
+      # IMPORTANT for hosting under /lumina
+      APP_ROOT_PATH: "/lumina"               # you'll use this in FastAPI root_path
+      # If your backend generates URLs, also consider:
+      # PUBLIC_BASE_URL: "https://alignment-atlas.online/lumina"
+
+      # In prod, set CORS to your real domain
+      CORS_ORIGINS: "https://alignment-atlas.online"
+
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+
+    # Bind only to localhost so Nginx is the public gateway
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8010:8000"
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: mka_frontend
+    restart: unless-stopped
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
+      # The browser should call your domain path, not localhost
+      VITE_API_BASE_URL: "/lumina/api"
+
+      # IMPORTANT for hosting under /lumina
+      VITE_BASE_PATH: "/lumina/"
+      # You must also configure Vite base in vite.config (see below)
+
     depends_on:
       - backend
+
+    # Bind only to localhost; Nginx serves it
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5174:5173"
 
 volumes:
   pg_data:

@@ -1,3 +1,4 @@
+import os
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -13,7 +14,8 @@ from app.services.graph_service import get_graph
 from app.services.insight_service import create_insight_pipeline
 from app.settings import settings
 
-app = FastAPI(title=settings.app_name)
+root_path = os.getenv("APP_ROOT_PATH", "")
+app = FastAPI(title=settings.app_name, root_path=root_path)
 
 app.add_middleware(
     CORSMiddleware,
