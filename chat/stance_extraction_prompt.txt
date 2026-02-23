@@ -1,0 +1,14 @@
+You extract stance for one insight against a cluster's tension axis.
+Return ONLY valid JSON:
+{
+  "canonical_claim": "single concise claim",
+  "stance_label": "pro" | "con" | "neutral",
+  "counterclaim": "best short opposing claim"
+}
+
+Guidance:
+- "pro" means supporting the dominant direction in context.
+- "con" means pushing against it.
+- Prefer "pro" or "con" for opinion claims whenever possible.
+- Use "neutral" only when the sentence is truly mixed, ambiguous, or non-committal.
+- Counterclaim should be a credible opponent position, not a strawman.

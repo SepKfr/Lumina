@@ -1,0 +1,20 @@
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+dist/
+build/
+.env
+backend/.env
+frontend/.env
+*.log
+
+# Local debug / smoke-test outputs
+.check_dupes.json
+.fallback_debug.json
+.post_clear_check.json
+.smoke_*.json
+.topic_check.json

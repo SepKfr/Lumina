@@ -1,0 +1,49 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: mka_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mka
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mka_backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/mka
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: https://api.openai.com/v1
+      OPENAI_LLM_MODEL: gpt-4o-mini
+      OPENAI_EMBED_MODEL: text-embedding-3-small
+      EMBEDDING_DIM: "1536"
+      CLUSTER_SIMILARITY_THRESHOLD: "0.78"
+      EDGE_SIMILARITY_THRESHOLD: "0.72"
+      CLUSTER_EMA_ALPHA: "0.25"
+      CORS_ORIGINS: http://localhost:5173
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mka_frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  pg_data:
