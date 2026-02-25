@@ -5,7 +5,7 @@
 
 body {
   margin: 0;
-  background: #090b10;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, #0f172a 0%, #090b10 50%, #020617 100%);
   color: #f1f5f9;
 }
 
@@ -19,13 +19,52 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid #1f2937;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.4);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.97) 0%, rgba(30, 41, 59, 0.6) 100%);
+  backdrop-filter: blur(8px);
 }
 
 h1 {
-  font-size: 18px;
+  font-size: 1.25rem;
+  font-weight: 600;
   margin: 0;
+  letter-spacing: -0.02em;
+  background: linear-gradient(120deg, #f1f5f9 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.edge-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.edge-filters button {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.edge-filters .debug-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.edge-filters .debug-toggle input {
+  width: auto;
+  margin: 0;
+}
+
+button.support {
+  border-color: #14532d;
 }
 
 main {
@@ -130,6 +169,37 @@ main.with-panel {
   color: #e2e8f0;
 }
 
+.topic-debug-block {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.topic-debug-block strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #94a3b8;
+}
+
+.topic-debug-block .topic-debug {
+  margin: 2px 0;
+  color: #cbd5e1;
+}
+
+.topic-debug {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 4px 0 0;
+}
+
+.topic-debug .topic-debug-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
 .side-panel h2,
 .side-panel h3 {
   margin: 0 0 8px;
@@ -146,6 +216,36 @@ main.with-panel {
   margin: 0 0 14px;
   color: #dbeafe;
   line-height: 1.35;
+}
+
+.compact-idea p {
+  margin: 0 0 8px;
+}
+
+.compact-idea button {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.relations-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  color: #94a3b8;
+}
+
+.relations-loading .spinner {
+  flex-shrink: 0;
+}
+
+.relations-loading-text {
+  margin: 0;
+  font-size: 13px;
+}
+
+.relations-loading-wrap {
+  margin-top: 8px;
 }
 
 .map-hint {

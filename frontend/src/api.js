@@ -7,6 +7,32 @@ export async function fetchGraph(params = {}) {
   return res.json();
 }
 
+export async function fetchRelations(id, topK = 2, candidatePool = 24) {
+  const query = new URLSearchParams({
+    id: String(id),
+    top_k: String(topK),
+    candidate_pool: String(candidatePool),
+  });
+  const res = await fetch(`${API_BASE}/relations?${query.toString()}`);
+  if (!res.ok) throw new Error("Failed to load relation buckets.");
+  return res.json();
+}
+
+/** Fast path: topic + stance only, no LLM. Returns at most 2 supportive and 2 opposing (leaves-first). */
+export async function fetchSupportiveAndOpposing(id, topK = 2) {
+  const [supportRes, opposeRes] = await Promise.all([
+    fetch(`${API_BASE}/supportive?id=${encodeURIComponent(id)}&top_k=${topK}`),
+    fetch(`${API_BASE}/opposing?id=${encodeURIComponent(id)}&top_k=${topK}`),
+  ]);
+  if (!supportRes.ok) throw new Error("Failed to load supportive ideas.");
+  if (!opposeRes.ok) throw new Error("Failed to load opposing ideas.");
+  const [supportData, opposeData] = await Promise.all([supportRes.json(), opposeRes.json()]);
+  return {
+    supportive: supportData.neighbors || [],
+    opposing: opposeData.neighbors || [],
+  };
+}
+
 export async function submitInsight(text) {
   const res = await fetch(`${API_BASE}/v1/insights`, {
     method: "POST",

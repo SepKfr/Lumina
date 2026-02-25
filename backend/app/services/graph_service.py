@@ -18,17 +18,23 @@ def _get_nodes_map(db: Session, node_ids: set[UUID]) -> dict:
     if not node_ids:
         return {}
     rows = db.query(Insight).filter(Insight.id.in_(list(node_ids))).all()
-    return {
-        r.id: {
+    out = {}
+    for r in rows:
+        meta = r.metadata_json or {}
+        out[r.id] = {
             "id": r.id,
             "text": r.text,
             "cluster_id": r.cluster_id,
             "stance_label": r.stance_label,
             "type_label": r.type_label,
             "canonical_claim": r.canonical_claim,
+            "topic_id": str(r.topic_id) if r.topic_id else None,
+            "subtopic_id": str(r.subtopic_id) if r.subtopic_id else None,
+            "level1": meta.get("level1") or (meta.get("topic_path") or [None])[0],
+            "level2": meta.get("level2") or (meta.get("topic_path") or [None, None])[1],
+            "level3": meta.get("level3") or (meta.get("topic_path") or [None, None, None])[2],
         }
-        for r in rows
-    }
+    return out
 
 
 def get_graph(db: Session, node_id: UUID | None, depth: int = 2, budget: int = 80) -> dict:
@@ -36,18 +42,23 @@ def get_graph(db: Session, node_id: UUID | None, depth: int = 2, budget: int = 8
         rows = db.query(Insight).order_by(Insight.created_at.desc()).limit(budget).all()
         ids = {r.id for r in rows}
         edges = db.query(Edge).filter(Edge.src.in_(ids), Edge.dst.in_(ids)).all() if ids else []
-        nodes = [
-            {
+        nodes = []
+        for r in rows:
+            meta = r.metadata_json or {}
+            nodes.append({
                 "id": r.id,
                 "text": r.text,
                 "cluster_id": r.cluster_id,
                 "stance_label": r.stance_label,
                 "type_label": r.type_label,
                 "canonical_claim": r.canonical_claim,
-            }
-            for r in rows
-        ]
-        edge_list = [{"src": e.src, "dst": e.dst, "weight": e.weight} for e in edges]
+                "topic_id": str(r.topic_id) if r.topic_id else None,
+                "subtopic_id": str(r.subtopic_id) if r.subtopic_id else None,
+                "level1": meta.get("level1") or (meta.get("topic_path") or [None])[0],
+                "level2": meta.get("level2") or (meta.get("topic_path") or [None, None])[1],
+                "level3": meta.get("level3") or (meta.get("topic_path") or [None, None, None])[2],
+            })
+        edge_list = [{"src": e.src, "dst": e.dst, "weight": e.weight, "edge_type": e.edge_type} for e in edges]
         cluster_ids = {n["cluster_id"] for n in nodes}
         clusters = _get_clusters_map(db, cluster_ids)
         return {"nodes": nodes, "edges": edge_list, "clusters": clusters}
@@ -76,7 +87,7 @@ def get_graph(db: Session, node_id: UUID | None, depth: int = 2, budget: int = 8
             if adjacency_counts[src] >= settings.max_edges_per_node:
                 continue
             key = (src, dst)
-            collected_edges[key] = {"src": src, "dst": dst, "weight": e.weight}
+            collected_edges[key] = {"src": src, "dst": dst, "weight": e.weight, "edge_type": e.edge_type}
             adjacency_counts[src] += 1
             if dst not in visited:
                 visited.add(dst)
@@ -95,7 +106,7 @@ def get_graph(db: Session, node_id: UUID | None, depth: int = 2, budget: int = 8
             if adjacency_counts[src] >= settings.max_edges_per_node:
                 continue
             key = (src, dst)
-            collected_edges[key] = {"src": src, "dst": dst, "weight": e.weight}
+            collected_edges[key] = {"src": src, "dst": dst, "weight": e.weight, "edge_type": e.edge_type}
             adjacency_counts[src] += 1
             if src not in visited:
                 visited.add(src)

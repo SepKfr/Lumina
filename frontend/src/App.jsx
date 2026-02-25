@@ -1,19 +1,15 @@
-import React, { useEffect, useRef, useState } from "react";
-import { fetchGraph, submitInsight } from "./api";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { fetchGraph, fetchSupportiveAndOpposing, submitInsight } from "./api";
 import ChatPanel from "./components/ChatPanel";
 import InsightForm from "./components/InsightForm";
 import Map3D from "./components/Map3D";
 import SidePanel from "./components/SidePanel";
 
-function isOpposing(a, b) {
-  return (a === "pro" && b === "con") || (a === "con" && b === "pro");
-}
-
 function normalizeIdeaText(text) {
   return (text || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function dedupeAndSeparate(supportersInput, challengersInput, seedText = "") {
+function dedupeAndSeparate(supportersInput, challengersInput, seedText = "", limit = 2) {
   const supporters = [];
   const challengers = [];
   const supporterKeys = new Set(seedText ? [normalizeIdeaText(seedText)] : []);
@@ -33,7 +29,16 @@ function dedupeAndSeparate(supportersInput, challengersInput, seedText = "") {
     challengers.push(c);
   }
 
-  return { supporters: supporters.slice(0, 6), challengers: challengers.slice(0, 6) };
+  return { supporters: supporters.slice(0, limit), challengers: challengers.slice(0, limit) };
+}
+
+function pickSimilarAndOpposite(neighborsInput, seedText = "", limit = 2) {
+  const neighbors = neighborsInput || [];
+  const ordered = [...neighbors].sort((a, b) => (Number(b._simWeight || 0) - Number(a._simWeight || 0)));
+  const similar = ordered.slice(0, limit);
+  const similarIds = new Set(similar.map((n) => String(n.id)));
+  const opposite = [...ordered].reverse().filter((n) => !similarIds.has(String(n.id))).slice(0, limit);
+  return dedupeAndSeparate(similar, opposite, seedText, limit);
 }
 
 export default function App() {
@@ -54,6 +59,23 @@ export default function App() {
   const [counterpartyBelief, setCounterpartyBelief] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [conversation, setConversation] = useState([]);
+  const [edgeView, setEdgeView] = useState("all");
+  const [debugMode, setDebugMode] = useState(false);
+  const [relationsLoading, setRelationsLoading] = useState(false);
+
+  const renderedGraph = useMemo(() => {
+    const edges = graph.edges || [];
+    if (edgeView === "all") return graph;
+    const filteredEdges = edges.filter((e) => {
+      const t = e.edge_type || "idea_similarity";
+      if (edgeView === "support") return t === "support";
+      if (edgeView === "oppose") return t === "oppose";
+      if (edgeView === "relation") return t === "support" || t === "oppose" || t === "neutral_similarity";
+      if (edgeView === "similarity") return t === "idea_similarity" || t === "idea_similarity_fallback";
+      return true;
+    });
+    return { ...graph, edges: filteredEdges };
+  }, [graph, edgeView]);
 
   async function loadGraph() {
     const data = await fetchGraph({ budget: 120 });
@@ -132,6 +154,9 @@ export default function App() {
   async function handleNodeClick(node) {
     setSelectedNode(node);
     setSelectionContext("graph");
+    setSupporters([]);
+    setChallengers([]);
+    setRelationsLoading(true);
     zoomTierRef.current = "mid";
     setZoomTier("mid");
     const nodeId = typeof node.id === "string" ? node.id : (node.id?.toString?.() ?? node.id);
@@ -168,13 +193,24 @@ export default function App() {
         return bWeight - aWeight;
       })
       .slice(0, 14);
-    const split = dedupeAndSeparate(
-      neighbors.filter((n) => n.stance_label === node.stance_label),
-      neighbors.filter((n) => isOpposing(node.stance_label, n.stance_label)),
-      node.text,
-    );
+    const neighborsWithWeights = neighbors.map((n) => {
+      const edge = (edges || []).find(
+        (e) =>
+          (String(e.src) === String(node.id) && String(e.dst) === String(n.id)) ||
+          (String(e.dst) === String(node.id) && String(e.src) === String(n.id)),
+      );
+      return { ...n, _simWeight: edge?.weight ?? 0 };
+    });
+    let split;
+    try {
+      const rel = await fetchSupportiveAndOpposing(node.id, 2);
+      split = dedupeAndSeparate(rel.supportive || [], rel.opposing || [], node.text, 2);
+    } catch {
+      split = pickSimilarAndOpposite(neighborsWithWeights, node.text, 2);
+    }
     setSupporters(split.supporters);
     setChallengers(split.challengers);
+    setRelationsLoading(false);
 
     // Auto-zoom into the clicked node's connected neighborhood.
     const fg = graphRef.current;
@@ -197,6 +233,9 @@ export default function App() {
   async function handleSubmitInsight(text) {
     const result = await submitInsight(text);
     setYourInsightNode(result.node);
+    setSupporters([]);
+    setChallengers([]);
+    setRelationsLoading(true);
     // Focus the map around the newly added idea so users see "where they are"
     const focused = await fetchGraph({ node_id: result.node.id, depth: 2, budget: 120 });
     const topicNodes = (focused.nodes || []).filter((n) => n.cluster_id === result.node.cluster_id || n.id === result.node.id);
@@ -211,9 +250,26 @@ export default function App() {
     setSelectionContext("submission");
     zoomTierRef.current = "mid";
     setZoomTier("mid");
-    const split = dedupeAndSeparate(result.supporters || [], result.challengers || [], result.node?.text || "");
+    const insertedNeighbors = (focused.nodes || [])
+      .filter((n) => String(n.id) !== String(result.node.id))
+      .map((n) => {
+        const edge = (topicEdges || []).find(
+          (e) =>
+            (String(e.src) === String(result.node.id) && String(e.dst) === String(n.id)) ||
+            (String(e.dst) === String(result.node.id) && String(e.src) === String(n.id)),
+        );
+        return { ...n, _simWeight: edge?.weight ?? 0 };
+      });
+    let split;
+    try {
+      const rel = await fetchSupportiveAndOpposing(result.node.id, 2);
+      split = dedupeAndSeparate(rel.supportive || [], rel.opposing || [], result.node?.text || "", 2);
+    } catch {
+      split = pickSimilarAndOpposite(insertedNeighbors, result.node?.text || "", 2);
+    }
     setSupporters(split.supporters);
     setChallengers(split.challengers);
+    setRelationsLoading(false);
 
     const fg = graphRef.current;
     if (fg && fg.cameraPosition) {
@@ -235,13 +291,17 @@ export default function App() {
     setSelectionContext("graph");
     setSupporters([]);
     setChallengers([]);
+    setRelationsLoading(false);
     loadGraph().catch(() => null);
   }
 
-  function focusOnYourInsight() {
+  async function focusOnYourInsight() {
     if (!yourInsightNode) return;
     setSelectedNode(yourInsightNode);
     setSelectionContext("submission");
+    setSupporters([]);
+    setChallengers([]);
+    setRelationsLoading(true);
     const neighbors = (graph.edges || [])
       .filter((e) => e.src === yourInsightNode.id || e.dst === yourInsightNode.id)
       .slice(0, 14);
@@ -251,13 +311,26 @@ export default function App() {
       neighborIds.add(e.dst);
     });
     const neighborNodes = (graph.nodes || []).filter((n) => neighborIds.has(n.id));
-    const split = dedupeAndSeparate(
-      neighborNodes.filter((n) => n.id !== yourInsightNode.id && n.cluster_id === yourInsightNode.cluster_id && n.stance_label === yourInsightNode.stance_label),
-      neighborNodes.filter((n) => n.cluster_id === yourInsightNode.cluster_id && isOpposing(yourInsightNode.stance_label, n.stance_label)),
-      yourInsightNode.text,
-    );
+    const weightedNeighbors = neighborNodes
+      .filter((n) => String(n.id) !== String(yourInsightNode.id))
+      .map((n) => {
+        const edge = (graph.edges || []).find(
+          (e) =>
+            (String(e.src) === String(yourInsightNode.id) && String(e.dst) === String(n.id)) ||
+            (String(e.dst) === String(yourInsightNode.id) && String(e.src) === String(n.id)),
+        );
+        return { ...n, _simWeight: edge?.weight ?? 0 };
+      });
+    let split;
+    try {
+      const rel = await fetchSupportiveAndOpposing(yourInsightNode.id, 2);
+      split = dedupeAndSeparate(rel.supportive || [], rel.opposing || [], yourInsightNode.text, 2);
+    } catch {
+      split = pickSimilarAndOpposite(weightedNeighbors, yourInsightNode.text, 2);
+    }
     setSupporters(split.supporters);
     setChallengers(split.challengers);
+    setRelationsLoading(false);
     const fg = graphRef.current;
     if (fg && fg.zoomToFit) {
       setTimeout(() => {
@@ -323,13 +396,13 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>Lumina</h1>
+        <h1>Lumina - Thought Bubbles</h1>
         <InsightForm onSubmit={handleSubmitInsight} />
       </header>
       <main className={selectedNode ? "with-panel" : ""}>
         <div className="map-wrap" ref={mapWrapRef}>
           <Map3D
-            graph={graph}
+            graph={renderedGraph}
             selectedNodeId={selectedNode?.id}
             yourInsightNodeId={yourInsightNode?.id}
             zoomTier={zoomTier}
@@ -340,6 +413,7 @@ export default function App() {
             graphRef={graphRef}
             width={mapSize.width}
             height={mapSize.height}
+            debugMode={debugMode}
           />
           {!selectedNode && (
             <div className="map-overlay-tip">
@@ -354,9 +428,11 @@ export default function App() {
             selectionContext={selectionContext}
             supporters={supporters}
             challengers={challengers}
+            relationsLoading={relationsLoading}
             onOpenChat={openChat}
             onClose={closePanel}
             onFocusYourInsight={focusOnYourInsight}
+            debugMode={debugMode}
           />
         )}
       </main>

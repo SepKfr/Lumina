@@ -15,6 +15,11 @@ ROOT = _resolve_root("clustering")
 PROMPT_PATH = ROOT / "clustering" / "embedding_enrichment_prompt.txt"
 
 
+"""
+Unused by Lumina ingestion (POST /ideas): embedding is computed on raw text only.
+Kept for optional v1/insights enrichment if needed.
+"""
+
 def classify_embedding_context(text: str, type_label: str) -> dict:
     system_prompt = PROMPT_PATH.read_text()
     user_prompt = (

@@ -1,4 +1,5 @@
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
@@ -8,7 +9,6 @@ from app.models import Cluster, Edge, Insight
 from app.services.clustering import assign_cluster
 from app.services.guardrails import run_submission_guardrail
 from app.services.llm_client import embed_text
-from app.services.pre_embedding import classify_embedding_context
 from app.services.stance import extract_stance
 from app.services.utils import insight_text_key, is_opposing_stance, normalize_insight_text
 from app.settings import settings
@@ -122,30 +122,23 @@ def create_insight_pipeline(db: Session, text_input: str, user_id=None) -> tuple
         cluster = db.query(Cluster).filter(Cluster.cluster_id == existing.cluster_id).one()
         return existing, {"decision": "accept", "duplicate": True}, supporters, challengers, cluster
 
-    guardrail = run_submission_guardrail(insight_text)
+    # Run guardrail and embed in parallel to cut latency (both are independent).
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        guardrail_future = pool.submit(run_submission_guardrail, insight_text)
+        embed_future = pool.submit(embed_text, insight_text)
+        guardrail = guardrail_future.result()
+        embedding = embed_future.result()
+
     decision = guardrail.get("decision")
     if decision in {"reject", "revise"}:
         return None, guardrail, [], [], None
 
-    embedding_context = classify_embedding_context(insight_text, guardrail.get("type_label", "other"))
-    embedding_input = (
-        f"topic_label: {embedding_context.get('topic_label', 'general')}\n"
-        f"stance_hint: {embedding_context.get('stance_hint', 'neutral')}\n"
-        f"type_label: {guardrail.get('type_label', 'other')}\n"
-        f"canonical_claim: {embedding_context.get('canonical_claim', insight_text)}\n"
-        f"insight: {insight_text}"
-    )
-    embedding = embed_text(embedding_input)
+    # Embed raw text only; topic/stance semantics are handled in routing/retrieval layers.
     cluster = assign_cluster(db, embedding)
 
     stance = extract_stance(insight_text, cluster.summary)
     guardrail_enriched = dict(guardrail)
-    guardrail_enriched["embedding_context"] = embedding_context
     stance_label = stance.get("stance_label", "neutral")
-    stance_hint = embedding_context.get("stance_hint")
-    if stance_label not in {"pro", "con"} and stance_hint in {"pro", "con"}:
-        # Use pre-embedding stance hint when extractor returns neutral/unclear.
-        stance_label = stance_hint
 
     insight = Insight(
         user_id=user_id,
