@@ -56,7 +56,7 @@ export async function submitInsight(text) {
   return res.json();
 }
 
-export async function sendChat(mode, seedInsightId, userMessage, conversationState, userBelief = null, counterpartyBelief = null) {
+export async function sendChat(mode, seedInsightId, userMessage, conversationState, userBelief = null, counterpartyBelief = null, userEmotion = null) {
   const body = {
     mode,
     seed_insight_id: seedInsightId,
@@ -69,6 +69,9 @@ export async function sendChat(mode, seedInsightId, userMessage, conversationSta
   if (counterpartyBelief != null && counterpartyBelief !== "") {
     body.counterparty_belief = counterpartyBelief;
   }
+  if (userEmotion != null && userEmotion !== "") {
+    body.user_emotion = userEmotion;
+  }
   const res = await fetch(`${API_BASE}/v1/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -76,4 +79,33 @@ export async function sendChat(mode, seedInsightId, userMessage, conversationSta
   });
   if (!res.ok) throw new Error("Chat request failed.");
   return res.json();
+}
+
+/** Voice: send audio file, get { text, emotion }. */
+export async function transcribeAudio(file, filename = "audio.webm", inferEmotion = true) {
+  const form = new FormData();
+  form.append("file", file, filename);
+  const res = await fetch(`${API_BASE}/v1/audio/transcribe?infer_emotion=${inferEmotion}`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.detail || "Transcription failed.");
+  }
+  return res.json();
+}
+
+/** Voice: get MP3 audio for agent reply. voiceProfile = "support" | "debate". */
+export async function getSpeech(text, voiceProfile = "support") {
+  const res = await fetch(`${API_BASE}/v1/audio/speech`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice_profile: voiceProfile }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.detail || "Speech failed.");
+  }
+  return res.blob();
 }

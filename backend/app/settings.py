@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     openai_base_url: str = Field(default="https://api.openai.com/v1", alias="OPENAI_BASE_URL")
     openai_llm_model: str = Field(default="gpt-4o-mini", alias="OPENAI_LLM_MODEL")
     openai_embed_model: str = Field(default="text-embedding-3-large", alias="OPENAI_EMBED_MODEL")
+    openai_tts_model: str = Field(default="tts-1", alias="OPENAI_TTS_MODEL")
 
     embedding_dim: int = Field(default=1536, alias="EMBEDDING_DIM")
     cluster_similarity_threshold: float = Field(default=0.78, alias="CLUSTER_SIMILARITY_THRESHOLD")

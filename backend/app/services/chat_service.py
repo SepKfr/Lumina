@@ -25,6 +25,7 @@ def generate_chat_reply(
     conversation_state: list[dict] | None,
     user_belief: str | None = None,
     counterparty_belief: str | None = None,
+    user_emotion: str | None = None,
 ) -> tuple[str, dict]:
     guardrail = run_chat_guardrail(user_message)
     if guardrail["decision"] != "allow":
@@ -46,6 +47,16 @@ def generate_chat_reply(
         .replace("{seed_belief}", seed_belief)
         .replace("{user_message}", user_message)
     )
+    if user_emotion and user_emotion.strip().lower() not in ("neutral", ""):
+        emotion_hint = (
+            "\n\n-------------------------------------\n"
+            "USER TONE (from voice)\n"
+            "-------------------------------------\n"
+            f"The user seems to be speaking in a {user_emotion.strip().lower()} tone. "
+            "React appropriately: acknowledge their energy without escalating if they are frustrated or angry; "
+            "you may match or slightly soften. Keep your reply natural and in character.\n"
+        )
+        system_prompt = system_prompt + emotion_hint
 
     history_lines = []
     for turn in conversation_state or []:
@@ -61,4 +72,9 @@ def generate_chat_reply(
     )
     result = chat_json(system_prompt, user_prompt)
     reply = result.get("response", "I want to answer that more clearly. Say it again in one sentence.")
-    return reply, guardrail
+    suggested_tone = None
+    if user_emotion and user_emotion.strip().lower() in ("angry", "frustrated", "excited"):
+        suggested_tone = "match_user_intensity" if mode == "debate" else "calm"
+    elif user_emotion and user_emotion.strip().lower() in ("sad", "uncertain"):
+        suggested_tone = "calm"
+    return reply, {**guardrail, "suggested_tone": suggested_tone}

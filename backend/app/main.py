@@ -1,8 +1,9 @@
 import os
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
@@ -17,9 +18,12 @@ from app.schemas import (
     MapResponse,
     NeighborsResponse,
     RelationBucketsResponse,
+    SpeechRequest,
     SubmissionResult,
     TopicsResponse,
+    TranscribeResponse,
 )
+from app.services.audio_service import infer_emotion_from_transcript, text_to_speech, transcribe
 from app.services.chat_service import generate_chat_reply
 from app.services.graph_service import get_graph
 from app.services.topic_layer import (
@@ -351,10 +355,47 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
             payload.conversation_state,
             user_belief=payload.user_belief,
             counterparty_belief=payload.counterparty_belief,
+            user_emotion=payload.user_emotion,
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     state = payload.conversation_state or []
     state = state + [{"role": "user", "content": payload.user_message}, {"role": "agent", "content": reply}]
-    return ChatResponse(mode=payload.mode, response=reply, conversation_state=state, guardrail=guardrail)
+    return ChatResponse(
+        mode=payload.mode,
+        response=reply,
+        conversation_state=state,
+        guardrail=guardrail,
+        suggested_tone=guardrail.get("suggested_tone"),
+    )
+
+
+@app.post("/v1/audio/transcribe", response_model=TranscribeResponse)
+async def audio_transcribe(
+    file: UploadFile = File(...),
+    infer_emotion: bool = Query(default=True),
+) -> TranscribeResponse:
+    import io
+    try:
+        content = await file.read()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Could not read file") from exc
+    if len(content) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 25 MB)")
+    buf = io.BytesIO(content)
+    try:
+        text = transcribe(buf, filename=file.filename or "audio.webm")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="Transcription failed") from exc
+    emotion = infer_emotion_from_transcript(text) if (infer_emotion and text.strip()) else None
+    return TranscribeResponse(text=text.strip(), emotion=emotion)
+
+
+@app.post("/v1/audio/speech")
+def audio_speech(payload: SpeechRequest) -> Response:
+    try:
+        audio_bytes = text_to_speech(payload.text, voice_profile=payload.voice_profile)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="TTS failed") from exc
+    return Response(content=audio_bytes, media_type="audio/mpeg")

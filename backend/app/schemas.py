@@ -48,6 +48,7 @@ class ChatRequest(BaseModel):
     conversation_state: list[dict] | None = None
     user_belief: str | None = None  # if absent, backend falls back to selected seed insight text
     counterparty_belief: str | None = None  # optional: real supporter/challenger text; if missing, agent infers (synthetic)
+    user_emotion: str | None = None  # optional: from voice (e.g. angry, calm); agent can match or soften tone
 
 
 class ChatResponse(BaseModel):
@@ -55,6 +56,7 @@ class ChatResponse(BaseModel):
     response: str
     conversation_state: list[dict]
     guardrail: dict
+    suggested_tone: str | None = None  # optional: for TTS (e.g. match_user_intensity, calm, assertive)
 
 
 class ClusterInfo(BaseModel):
@@ -115,3 +117,13 @@ class RelationBucketsResponse(BaseModel):
     supportive: list[dict]
     opposing: list[dict]
     neutral: list[dict] = Field(default_factory=list)
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+    emotion: str | None = None
+
+
+class SpeechRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4096)
+    voice_profile: str = Field(default="support", pattern="^(support|debate)$")
