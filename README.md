@@ -161,13 +161,47 @@ Backend at 8000, frontend at 5173; set `OPENAI_API_KEY` in the environment for t
 
 ### Seed data (200–300 insights)
 
-With backend running and DB + models ready:
+**Curated re-ingest** (recommended): use `seed_insights.jsonl` and POST each line to `/ideas`:
+
+```bash
+cd backend && uv run python scripts/reingest_ideas.py
+```
+
+Requires the API server to be up. Override with `API_BASE` and `SEED_PATH` (see [Map empty after deploy?](#map-empty-after-deploy) for running reingest on a server via Docker).
+
+**Synthetic seed** (optional): generate ~250 pro/con sentences and POST to `/v1/insights`:
 
 ```bash
 python backend/scripts/seed_insights.py
 ```
 
-Uses pro/con sentence variants and prefixes/suffixes to POST to `http://localhost:8000/v1/insights`.
+Uses pro/con sentence variants and prefixes/suffixes to POST to `http://localhost:8000/v1/insights`. You can override the API base with the `API_BASE` env var (e.g. when seeding on a server).
+
+### Map empty after deploy?
+
+The map is filled from **PostgreSQL** (insights, edges, topics). Data lives in the Docker volume `pg_data`. Two common reasons it’s empty after you deploy:
+
+1. **You deployed to a different machine (e.g. a server).** The server has its own, initially empty `pg_data` volume. Your pre‑ingested data only existed on your local machine.
+2. **You ran `docker compose down -v`.** The `-v` flag removes named volumes, so `pg_data` was deleted and the DB started empty.
+
+**Ways to fix it:**
+
+- **Re-ingest your curated insights** (from `seed_insights.jsonl` via POST /ideas). This is what you use when the map should show the same ideas you had before. With the stack running on the server, from the **repo root** (so `seed_insights.jsonl` is in the current directory):
+  ```bash
+  docker compose run --rm \
+    -e API_BASE=http://backend:8000 \
+    -e SEED_PATH=/app/seed_insights.jsonl \
+    -v "$(pwd)/seed_insights.jsonl:/app/seed_insights.jsonl:ro" \
+    backend python scripts/reingest_ideas.py
+  ```
+  The script clears the topic-layer tables, then POSTs each line of `seed_insights.jsonl` to the backend (embeddings, topics, edges are created by the API). Takes a few minutes depending on the number of lines.
+- **Synthetic seed** (optional, ~250 random pro/con insights). If you want placeholder data instead of `seed_insights.jsonl`:
+  ```bash
+  docker compose run --rm -e API_BASE=http://backend:8000 backend python scripts/seed_insights.py
+  ```
+- **Restore a DB dump** if you had exported the DB when it was populated. See [Moving the populated graph to a server](#moving-the-populated-graph-to-a-server) for `pg_dump` / `pg_restore` steps.
+
+To avoid losing data on future deploys on the same machine, use `docker compose down` **without** `-v` so the `pg_data` volume is kept.
 
 ### Moving the populated graph to a server
 

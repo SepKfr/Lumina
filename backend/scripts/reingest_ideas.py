@@ -24,11 +24,11 @@ from sqlalchemy import text as sql_text
 
 from app.db import engine
 
-# Seed file: project root / seed_insights.jsonl
+# Seed file: project root / seed_insights.jsonl (override with SEED_PATH env)
 SCRIPT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = SCRIPT_DIR.parent
 PROJECT_ROOT = BACKEND_DIR.parent
-SEED_PATH = PROJECT_ROOT / "seed_insights.jsonl"
+SEED_PATH = Path(os.getenv("SEED_PATH", str(PROJECT_ROOT / "seed_insights.jsonl")))
 API_BASE = os.getenv("API_BASE", "http://localhost:8000")
 
 

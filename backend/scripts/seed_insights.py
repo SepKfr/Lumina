@@ -1,9 +1,10 @@
+import os
 import random
 import time
 
 import requests
 
-API_BASE = "http://localhost:8000"
+API_BASE = os.getenv("API_BASE", "http://localhost:8000")
 TARGET = 250
 
 TOPICS = [
