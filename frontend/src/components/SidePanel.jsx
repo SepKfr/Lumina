@@ -63,14 +63,14 @@ export default function SidePanel({ node, yourInsightNode, selectionContext, sup
         </div>
       ) : (
         <>
-          <h3>{fromSubmission ? "People who think similar to you" : "People who think similarly about this idea"}</h3>
+          <h3>Echos</h3>
           {hasSupporters ? (
             (supporters || []).map((s, idx) => (
               <div key={`${s.id || s.text}-${idx}`} className="compact-idea">
                 <p>{s.text}</p>
                 {topicDebugBlock(s)}
                 <button type="button" onClick={() => onOpenChat("support", s.text)}>
-                  Chat with this view
+                  Up for a Chat?
                 </button>
               </div>
             ))
@@ -78,14 +78,14 @@ export default function SidePanel({ node, yourInsightNode, selectionContext, sup
             <p className="compact-idea">No similar nearby belief found yet.</p>
           )}
 
-          <h3>{fromSubmission ? "People who think opposite to you" : "People who think differently about this idea"}</h3>
+          <h3>Counterpoints</h3>
           {hasChallengers ? (
             (challengers || []).map((c, idx) => (
               <div key={`${c.id || c.text}-${idx}`} className="compact-idea">
                 <p>{c.text}</p>
                 {topicDebugBlock(c)}
                 <button type="button" className="debate" onClick={() => onOpenChat("debate", c.text)}>
-                  Debate this view
+                  Up for a Debate?
                 </button>
               </div>
             ))

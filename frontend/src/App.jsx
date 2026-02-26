@@ -396,7 +396,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>Lumina - Thought Bubbles</h1>
+        <h1>Lumina - A Surge of Insights</h1>
         <InsightForm onSubmit={handleSubmitInsight} />
       </header>
       <main className={selectedNode ? "with-panel" : ""}>
