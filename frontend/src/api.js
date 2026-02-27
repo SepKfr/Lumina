@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+// Use env so production (e.g. EC2) can set VITE_API_BASE_URL=/lumina/api or full URL.
+// Default /api works with Vite dev proxy (see vite.config.js); never hardcode localhost.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export async function fetchGraph(params = {}) {
   const query = new URLSearchParams(params);
