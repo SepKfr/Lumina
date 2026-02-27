@@ -15,6 +15,19 @@ from app.settings import settings
 STANCE_LABELS = ("pro", "neutral", "con")
 
 
+def _to_json_safe(obj):
+    """Convert numpy types to JSON-serializable types (list/dict/float) for API responses."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (np.floating, np.integer)):
+        return float(obj) if isinstance(obj, np.floating) else int(obj)
+    if isinstance(obj, dict):
+        return {k: _to_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_json_safe(v) for v in obj]
+    return obj
+
+
 def _vector_literal(values: list[float]) -> str:
     return "[" + ",".join(f"{x:.8f}" for x in values) + "]"
 
@@ -946,8 +959,8 @@ def build_map(db: Session, max_idea_edges: int = 2500) -> dict:
                 "name": t.name,
                 "n_points": t.n_points,
                 "parent_topic_id": t.parent_topic_id,
-                "centroid_embedding": t.centroid_embedding,
-                "stance_centroids_json": t.stance_centroids_json,
+                "centroid_embedding": _to_json_safe(t.centroid_embedding),
+                "stance_centroids_json": _to_json_safe(t.stance_centroids_json),
             }
             for t in topics
         ],

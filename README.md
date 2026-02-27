@@ -123,6 +123,8 @@ Moderation is entirely LLM reasoning; there is no keyword-block layer in this MV
 
 ## Running the project
 
+**If you see `connection to server at "127.0.0.1", port 5432 failed: Connection refused`** — start PostgreSQL first (see Option A below). The backend requires a running Postgres + pgvector instance.
+
 ### Option A: Infra in Docker, app locally (recommended)
 
 1. Start Postgres + pgvector:
@@ -154,10 +156,10 @@ Moderation is entirely LLM reasoning; there is no keyword-block layer in this MV
 ### Option B: Full Docker stack
 
 ```bash
-docker-compose build && docker-compose up -d
+docker compose build && docker compose up -d
 ```
 
-Backend at 8000, frontend at 5173; set `OPENAI_API_KEY` in the environment for the backend service.
+**Open the app at:** `http://localhost:8080/lumina/` (not the frontend port directly). Nginx on port 8080 serves the frontend and proxies `/lumina/api` to the backend, so the graph and ingestion work. Set `OPENAI_API_KEY` in the environment (e.g. in `.env` next to `docker-compose.yml`) for the backend.
 
 ### Seed data (200–300 insights)
 
@@ -186,15 +188,19 @@ The map is filled from **PostgreSQL** (insights, edges, topics). Data lives in t
 
 **Ways to fix it:**
 
-- **Re-ingest your curated insights** (from `seed_insights.jsonl` via POST /ideas). This is what you use when the map should show the same ideas you had before. With the stack running on the server, from the **repo root** (so `seed_insights.jsonl` is in the current directory):
-  ```bash
-  docker compose run --rm \
-    -e API_BASE=http://backend:8000 \
-    -e SEED_PATH=/app/seed_insights.jsonl \
-    -v "$(pwd)/seed_insights.jsonl:/app/seed_insights.jsonl:ro" \
-    backend python scripts/reingest_ideas.py
-  ```
-  The script clears the topic-layer tables, then POSTs each line of `seed_insights.jsonl` to the backend (embeddings, topics, edges are created by the API). Takes a few minutes depending on the number of lines.
+**Easiest — seed from `seed_insights.jsonl` (one command from repo root; stack must be up):**
+
+```bash
+docker compose run --rm \
+  -e API_BASE=http://backend:8000 \
+  -e SEED_PATH=/app/seed_insights.jsonl \
+  -v "$(pwd)/seed_insights.jsonl:/app/seed_insights.jsonl:ro" \
+  backend python scripts/reingest_ideas.py
+```
+
+After it finishes, reload the app; the graph should show nodes.
+
+- **Re-ingest your curated insights** (same as above; from `seed_insights.jsonl` via POST /ideas). Use this when the map should show the same ideas you had before. With the stack running on the server, from the **repo root** (so `seed_insights.jsonl` is in the current directory), run the block above. The script clears the topic-layer tables, then POSTs each line to the backend (embeddings, topics, edges are created). Takes a few minutes depending on the number of lines.
 - **Synthetic seed** (optional, ~250 random pro/con insights). If you want placeholder data instead of `seed_insights.jsonl`:
   ```bash
   docker compose run --rm -e API_BASE=http://backend:8000 backend python scripts/seed_insights.py
