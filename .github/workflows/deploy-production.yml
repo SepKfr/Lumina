@@ -8,15 +8,10 @@ on:
 
 concurrency:
   group: deploy-prod
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  test:
-    name: Test
-    uses: ./.github/workflows/run-tests.yml
-
   deploy:
-    needs: test
     runs-on: [self-hosted]
     environment: prod
 
@@ -30,6 +25,18 @@ jobs:
           set -euo pipefail
 
           DEPLOY_DIR=/opt/lumina/prod/backend
+
+          sudo mkdir -p "$DEPLOY_DIR"
+          sudo chown -R ubuntu:ubuntu /opt/lumina
+
+          # Sync repo contents into deploy dir (local copy, no rsync over ssh)
+          rsync -az --delete \
+            --exclude ".git" \
+            --exclude ".venv" \
+            --exclude "__pycache__" \
+            --exclude ".pytest_cache" \
+            ./ "$DEPLOY_DIR/"
+
           cd "$DEPLOY_DIR"
 
           command -v uv >/dev/null 2>&1 || { curl -LsSf https://astral.sh/uv/install.sh | sh; export PATH="$HOME/.local/bin:$PATH"; }

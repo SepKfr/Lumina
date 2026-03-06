@@ -32,6 +32,17 @@ jobs:
 
           DEPLOY_DIR=/opt/lumina/staging/backend
 
+          sudo mkdir -p "$DEPLOY_DIR"
+          sudo chown -R ubuntu:ubuntu /opt/lumina
+
+          # Copy repo contents into the staging deploy dir
+          rsync -az --delete \
+            --exclude ".git" \
+            --exclude ".venv" \
+            --exclude "__pycache__" \
+            --exclude ".pytest_cache" \
+            ./ "$DEPLOY_DIR/"
+
           cd "$DEPLOY_DIR"
 
           # Python deps
