@@ -30,18 +30,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          DEPLOY_DIR=/opt/lumina/staging
-
-          sudo mkdir -p "$DEPLOY_DIR"
-          sudo chown -R ubuntu:ubuntu /opt/lumina
-
-          # Copy repo contents into the staging deploy dir
-          rsync -az --delete \
-            --exclude ".git" \
-            --exclude ".venv" \
-            --exclude "__pycache__" \
-            --exclude ".pytest_cache" \
-            ./ "$DEPLOY_DIR/"
+          DEPLOY_DIR=/opt/lumina/staging/backend
 
           cd "$DEPLOY_DIR"
 
