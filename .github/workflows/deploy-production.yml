@@ -8,10 +8,15 @@ on:
 
 concurrency:
   group: deploy-prod
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
+  test:
+    name: Test
+    uses: ./.github/workflows/run-tests.yml
+
   deploy:
+    needs: test
     runs-on: [self-hosted, production, lumina]
     environment: prod
 

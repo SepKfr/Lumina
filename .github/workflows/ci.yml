@@ -1,10 +1,10 @@
-# CI: run tests on every push to main/staging and on PRs targeting main.
-# Passing this workflow is required for staging to "pass" (e.g. branch protection).
+# CI: run tests on PRs targeting main and on push to staging.
+# On push to main, tests run inside Deploy Staging / Deploy Production instead.
 name: CI
 
 on:
   push:
-    branches: [main, staging]
+    branches: [staging]
   pull_request:
     branches: [main]
 
