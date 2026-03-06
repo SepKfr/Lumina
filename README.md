@@ -275,6 +275,36 @@ This project is configured so that **alignmentatlas.online/lumina** serves the L
 - **Backend CORS:** If the API is on a different host/port than the site, set `CORS_ORIGINS` in the backend to include `https://alignmentatlas.online` (and `http://localhost:5173` if you still need local dev).
 - **Local dev:** With default config, open **http://localhost:5173/lumina**. To develop at the root (**http://localhost:5173/**), add `VITE_BASE_PATH=/` to `frontend/.env`.
 
+### CI/CD (GitHub Actions)
+
+The repo includes workflows for **staging** and **production** with tests and optional approval for production.
+
+| Workflow | Trigger | What runs | Approval |
+|----------|---------|-----------|----------|
+| **CI** | Push to `main`/`staging`, or PR to `main` | Backend tests (pytest), frontend build + tests (Vitest) | — |
+| **Deploy Staging** | Push to `main` | Same tests, then deploy to **staging** environment | — |
+| **Deploy Production** | Manual (`workflow_dispatch`) | Same tests, then deploy to **production** environment | **Required** (see below) |
+
+**Tests required for staging/prod to pass**
+
+- **Backend:** `backend/tests/` (pytest). Run locally: `cd backend && pip install -r requirements.txt pytest && python -m pytest tests/ -v`
+- **Frontend:** Build + unit tests. Run locally: `cd frontend && npm ci && npm run build && npm run test`
+
+**Setting up production approval**
+
+1. In GitHub: **Settings → Environments**.
+2. Create environment **`production`** (and optionally **`staging`**).
+3. Under **production**, enable **Required reviewers** and add yourself (or your team). When **Deploy Production** runs, it will pause at the “Deploy to Production” job until an approver approves it in the Actions tab.
+
+**Configuring deployments**
+
+Deploy jobs are placeholders. Edit:
+
+- `.github/workflows/deploy-staging.yml` — add steps to deploy to your staging host (e.g. Cloud Run, Vercel, or SSH + `docker compose`).
+- `.github/workflows/deploy-production.yml` — add steps to deploy to production. Use **Settings → Secrets and variables → Actions** for tokens/keys (e.g. `VERCEL_TOKEN`, `PROD_SSH_KEY`).
+
+To deploy production: open **Actions → Deploy Production → Run workflow**, enter `deploy` in the confirmation input, run; then approve the **production** environment when prompted.
+
 ---
 
 ## Key API contracts
