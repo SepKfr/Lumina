@@ -17,7 +17,8 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: [self-hosted, staging, lumina]
+    # Requires a self-hosted runner with labels: self-hosted, staging, lumina (Settings → Actions → Runners)
+    runs-on: [self-hosted]
     environment: staging
 
     steps:
