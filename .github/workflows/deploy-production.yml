@@ -8,10 +8,15 @@ on:
 
 concurrency:
   group: deploy-prod
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
+  test:
+    name: Test
+    uses: ./.github/workflows/run-tests.yml
+
   deploy:
+    needs: test
     runs-on: [self-hosted]
     environment: prod
 
@@ -24,12 +29,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          DEPLOY_DIR=/opt/lumina/prod/backend
+          # Deploy full repo; backend (with pyproject.toml) lives at $DEPLOY_DIR/backend
+          DEPLOY_DIR=/opt/lumina/prod
 
           sudo mkdir -p "$DEPLOY_DIR"
           sudo chown -R ubuntu:ubuntu /opt/lumina
 
-          # Sync repo contents into deploy dir (local copy, no rsync over ssh)
           rsync -az --delete \
             --exclude ".git" \
             --exclude ".venv" \
@@ -37,11 +42,10 @@ jobs:
             --exclude ".pytest_cache" \
             ./ "$DEPLOY_DIR/"
 
-          cd "$DEPLOY_DIR"
+          cd "$DEPLOY_DIR/backend"
 
           command -v uv >/dev/null 2>&1 || { curl -LsSf https://astral.sh/uv/install.sh | sh; export PATH="$HOME/.local/bin:$PATH"; }
 
-          # Install deps (prefer lockfile if you have it)
           if [ -f uv.lock ]; then uv sync --frozen; else uv sync; fi
 
           sudo systemctl restart lumina-prod
