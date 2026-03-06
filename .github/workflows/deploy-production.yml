@@ -1,0 +1,60 @@
+# .github/workflows/deploy_prod.yml
+name: Deploy Production
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, production, lumina]
+    environment: prod
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy on server (local)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEPLOY_DIR=/opt/lumina/prod
+
+          sudo mkdir -p "$DEPLOY_DIR"
+          sudo chown -R ubuntu:ubuntu /opt/lumina
+
+          # Sync repo contents into deploy dir (local copy, no rsync over ssh)
+          rsync -az --delete \
+            --exclude ".git" \
+            --exclude ".venv" \
+            --exclude "__pycache__" \
+            --exclude ".pytest_cache" \
+            ./ "$DEPLOY_DIR/"
+
+          cd "$DEPLOY_DIR"
+
+          command -v uv >/dev/null 2>&1 || { curl -LsSf https://astral.sh/uv/install.sh | sh; export PATH="$HOME/.local/bin:$PATH"; }
+
+          # Install deps (prefer lockfile if you have it)
+          if [ -f uv.lock ]; then uv sync --frozen; else uv sync; fi
+
+          sudo systemctl restart lumina-prod
+
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8501 >/dev/null; then
+              echo "Lumina production OK"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "Production smoke test failed"
+          sudo systemctl status lumina-prod --no-pager || true
+          sudo journalctl -u lumina-prod -n 120 --no-pager || true
+          exit 1

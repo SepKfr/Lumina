@@ -1,0 +1,14 @@
+# CI: run tests on every push to main/staging and on PRs targeting main.
+# Passing this workflow is required for staging to "pass" (e.g. branch protection).
+name: CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    uses: ./.github/workflows/run-tests.yml
