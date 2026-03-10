@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: deploy-prod
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Deploy full repo; backend (with pyproject.toml) lives at $DEPLOY_DIR/backend
+          # Deploy full repo; pyproject.toml and uv.lock at root. Systemd WorkingDirectory must be $DEPLOY_DIR.
           DEPLOY_DIR=/opt/lumina/prod
 
           sudo mkdir -p "$DEPLOY_DIR"
@@ -42,7 +42,7 @@ jobs:
             --exclude ".pytest_cache" \
             ./ "$DEPLOY_DIR/"
 
-          cd "$DEPLOY_DIR/backend"
+          cd "$DEPLOY_DIR"
 
           command -v uv >/dev/null 2>&1 || { curl -LsSf https://astral.sh/uv/install.sh | sh; export PATH="$HOME/.local/bin:$PATH"; }
 

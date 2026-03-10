@@ -23,13 +23,11 @@ jobs:
 
       - name: Install backend dependencies
         run: |
-          cd backend
           uv sync --all-groups
 
       - name: Run backend tests
         run: |
-          cd backend
-          uv run pytest tests/ -v --tb=short
+          uv run pytest backend/tests/ -v --tb=short
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

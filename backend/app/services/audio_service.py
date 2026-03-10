@@ -1,9 +1,8 @@
 """
 Voice-to-text (Whisper), optional emotion-from-transcript, and text-to-speech (TTS).
 OpenAI Whisper does not output emotion; we infer it from the transcript via LLM.
-OpenAI TTS: use voice + speed (+ instructions on newer models) for idea-embodied tone.
+TTS: OpenAI or ElevenLabs (configurable via TTS_PROVIDER).
 """
-import json
 from typing import BinaryIO
 
 import httpx
@@ -62,20 +61,13 @@ def infer_emotion_from_transcript(transcript: str) -> str:
         return "neutral"
 
 
-def text_to_speech(
+def _text_to_speech_openai(
     text: str,
-    voice_profile: str = "support",
-    *,
-    voice: str | None = None,
-    speed: float = 1.0,
+    voice_profile: str,
+    voice: str | None,
+    speed: float,
 ) -> bytes:
-    """
-    Generate speech from text. voice_profile drives default voice + speed to match idea persona.
-    - support: warmer, slightly slower (e.g. nova, 0.95)
-    - debate: sharper, normal or slightly faster (e.g. onyx, 1.05)
-    Optional: use TTS model that supports 'instructions' for emotional tone (e.g. gpt-4o-mini-tts).
-    """
-    # Map idea-embodied profile to voice + speed (OpenAI voices: alloy, echo, fable, onyx, nova, shimmer, etc.)
+    """OpenAI TTS implementation."""
     if voice_profile == "debate":
         voice = voice or "onyx"
         speed = speed if speed != 1.0 else 1.05
@@ -93,7 +85,6 @@ def text_to_speech(
         "speed": min(4.0, max(0.25, speed)),
         "response_format": "mp3",
     }
-    # Newer TTS models support instructions for tone (not tts-1/tts-1-hd)
     tts_model = payload["model"]
     if "gpt-4o" in tts_model or "tts-2025" in tts_model:
         if voice_profile == "debate":
@@ -105,3 +96,51 @@ def text_to_speech(
         resp = client.post(url, headers=headers, json=payload)
         resp.raise_for_status()
     return resp.content
+
+
+def _text_to_speech_elevenlabs(
+    text: str,
+    voice_profile: str,
+    speed: float,
+) -> bytes:
+    """ElevenLabs TTS implementation."""
+    from elevenlabs import ElevenLabs
+
+    if not settings.elevenlabs_api_key:
+        raise ValueError("ELEVENLABS_API_KEY is not set.")
+
+    voice_id = settings.elevenlabs_voice_debate if voice_profile == "debate" else settings.elevenlabs_voice_support
+    speed_val = min(2.0, max(0.5, speed))
+
+    client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+    audio_stream = client.text_to_speech.convert(
+        voice_id=voice_id,
+        text=text[:4096],
+        model_id=settings.elevenlabs_model,
+        output_format="mp3_44100_128",
+        voice_settings={
+            "stability": 0.6 if voice_profile == "debate" else 0.7,
+            "similarity_boost": 0.75,
+            "speed": speed_val,
+        },
+    )
+    return b"".join(audio_stream)
+
+
+def text_to_speech(
+    text: str,
+    voice_profile: str = "support",
+    *,
+    voice: str | None = None,
+    speed: float = 1.0,
+) -> bytes:
+    """
+    Generate speech from text. voice_profile drives default voice + speed to match idea persona.
+    - support: warmer, slightly slower
+    - debate: sharper, normal or slightly faster
+    Provider: OpenAI or ElevenLabs (TTS_PROVIDER env).
+    """
+    provider = (settings.tts_provider or "openai").lower()
+    if provider == "elevenlabs":
+        return _text_to_speech_elevenlabs(text, voice_profile, speed)
+    return _text_to_speech_openai(text, voice_profile, voice, speed)

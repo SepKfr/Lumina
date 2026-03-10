@@ -136,10 +136,8 @@ Moderation is entirely LLM reasoning; there is no keyword-block layer in this MV
 2. Backend (from repo root):
 
    ```bash
-   cd backend
-   uv venv && source .venv/bin/activate
-   uv pip install -r requirements.txt
-   cp .env.example .env   # set OPENAI_API_KEY
+   uv sync
+   cp backend/.env.example backend/.env   # set OPENAI_API_KEY
    uv run uvicorn app.main:app --reload --port 8000
    ```
 
@@ -166,7 +164,7 @@ docker compose build && docker compose up -d
 **Curated re-ingest** (recommended): use `seed_insights.jsonl` and POST each line to `/ideas`:
 
 ```bash
-cd backend && uv run python scripts/reingest_ideas.py
+uv run python backend/scripts/reingest_ideas.py
 ```
 
 Requires the API server to be up. Override with `API_BASE` and `SEED_PATH` (see [Map empty after deploy?](#map-empty-after-deploy) for running reingest on a server via Docker).
@@ -287,7 +285,7 @@ The repo includes workflows for **staging** and **production** with tests and op
 
 **Tests required for staging/prod to pass**
 
-- **Backend:** `backend/tests/` (pytest). Run locally: `cd backend && pip install -r requirements.txt pytest && python -m pytest tests/ -v`
+- **Backend:** `backend/tests/` (pytest). Run locally: `uv run pytest backend/tests/ -v`
 - **Frontend:** Build + unit tests. Run locally: `cd frontend && npm ci && npm run build && npm run test`
 
 **Setting up production approval**

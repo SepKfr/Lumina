@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=(".env", "backend/.env"), extra="ignore")
 
     app_name: str = "Micro-Knowledge Atlas API"
     database_url: str = Field(default="postgresql+psycopg://postgres:postgres@localhost:5432/mka", alias="DATABASE_URL")
@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     openai_llm_model: str = Field(default="gpt-4o-mini", alias="OPENAI_LLM_MODEL")
     openai_embed_model: str = Field(default="text-embedding-3-large", alias="OPENAI_EMBED_MODEL")
     openai_tts_model: str = Field(default="tts-1", alias="OPENAI_TTS_MODEL")
+
+    # TTS provider: "openai" or "elevenlabs". When "elevenlabs", ELEVENLABS_API_KEY is required.
+    tts_provider: str = Field(default="openai", alias="TTS_PROVIDER")
+    elevenlabs_api_key: str = Field(default="", alias="ELEVENLABS_API_KEY")
+    elevenlabs_model: str = Field(default="eleven_multilingual_v2", alias="ELEVENLABS_MODEL")
+    # Voice IDs from ElevenLabs (support: warm; debate: assertive). Get IDs from elevenlabs.io/voice-library
+    elevenlabs_voice_support: str = Field(default="21m00Tcm4TlvDq8ikWAM", alias="ELEVENLABS_VOICE_SUPPORT")  # Rachel
+    elevenlabs_voice_debate: str = Field(default="pNInz6obpgDQGcFmaJgB", alias="ELEVENLABS_VOICE_DEBATE")  # Adam
 
     embedding_dim: int = Field(default=1536, alias="EMBEDDING_DIM")
     cluster_similarity_threshold: float = Field(default=0.78, alias="CLUSTER_SIMILARITY_THRESHOLD")

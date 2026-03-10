@@ -4,7 +4,7 @@ Reingest ideas: clear topic-layer data (edges, idea_relations, insights, topics)
 then re-submit each line from seed_insights.jsonl to POST /ideas.
 
 Run with API server up: uv run uvicorn app.main:app --port 8000
-Then: cd backend && uv run python scripts/reingest_ideas.py
+Then: uv run python backend/scripts/reingest_ideas.py
 """
 import json
 import os
